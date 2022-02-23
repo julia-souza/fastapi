@@ -2,23 +2,31 @@ from fastapi import FastAPI, status, Response
 
 from model.book import Book
 from model.author import Author
+from model.pedido import Pedido
+
+import redis
 
 import dao.crud as crud
 
-def prefix(): 
+
+def prefix():
     return '/fastapi/sd/'
+
+
 def services():
     return {'author': Author, 'book': Book}
+
+
 def create_fastapi_meta():
     return FastAPI(
         title="fastapi-sd",
         description="Trabalho de Sistemas Distribuidos utilizando FastAPI",
         version="0.0.1",
         contact={
-            "name": "Felipe e Júlia",        
+            "name": "Felipe e Júlia",
         },
         docs_url="/sd/documentation",
-        tags_metadata = [
+        tags_metadata=[
             {
                 "name": "author",
             },
@@ -27,50 +35,56 @@ def create_fastapi_meta():
             },
             {
                 "name": "order",
-            },          
+            },
         ]
     )
+
+
 def create_entity_crud_routes(app: FastAPI, route: str):
     @app.get(
-        path=prefix()+route+"/{key}", 
-        tags=[route], 
+        path=prefix()+route+"/{key}",
+        tags=[route],
         responses={404: {"description": f"The {route} was not found"}}
     )
     async def read(key: int):
         return Response(content=crud.read(key, route), media_type="application/json")
-                
+
     @app.get(prefix()+route+"/", tags=[route])
     async def list(ini: int = 0, offset: int = 10):
         return crud.list(route, ini, offset)
-        
-    @app.post(prefix()+route+"/", tags=[route], status_code = status.HTTP_204_NO_CONTENT)
+
+    @app.post(prefix()+route+"/", tags=[route], status_code=status.HTTP_204_NO_CONTENT)
     async def create(data: services()[route]):
         crud.create(data)
         return Response(content=None, media_type=None, status_code=status.HTTP_204_NO_CONTENT)
 
-    @app.put(prefix()+route+"/{key}", tags=[route], status_code = status.HTTP_204_NO_CONTENT)
+    @app.put(prefix()+route+"/{key}", tags=[route], status_code=status.HTTP_204_NO_CONTENT)
     async def update(key: int, data: services()[route]):
         crud.update(data, key)
         return Response(content=None, media_type=None, status_code=status.HTTP_204_NO_CONTENT)
-    
-    @app.delete(prefix()+route+"/{key}", tags=[route], status_code = status.HTTP_204_NO_CONTENT)
+
+    @app.delete(prefix()+route+"/{key}", tags=[route], status_code=status.HTTP_204_NO_CONTENT)
     async def delete(key: int):
         crud.delete(key, route)
         return Response(content=None, media_type=None, status_code=status.HTTP_204_NO_CONTENT)
     return app
 
+
 def create_user_case_route_purchase(app):
-    @app.post(prefix()+"book/purchase", tags=['order'], status_code = status.HTTP_204_NO_CONTENT)
-    async def purchase():        
-        # Implementar registro da compra para posterior consulta e disparar thread para verificação de disponibilidade em estoque
+    @app.post(prefix()+"book/purchase", tags=['order'], status_code=status.HTTP_204_NO_CONTENT)
+    async def purchase(data:Pedido):
+        crud.create(data)  
+        # disparar thread para verificação de disponibilidade em estoque
         return {}
     return app
+
+
 def create_user_case_route_view_order(app):
-    @app.get(prefix()+"order/", tags=['order'], status_code = status.HTTP_204_NO_CONTENT)
-    async def view_order():        
-        # Implementar busca por id do pedido mostrando status de entrega
-        return {}
+    @app.get(prefix()+"order/{key}", tags=['order'], status_code=status.HTTP_204_NO_CONTENT)
+    async def view_order(key: int):
+        return Response(content=crud.read(key, "pedido"), media_type="application/json")
     return app
+
 
 def create_fastapi():
     app = create_fastapi_meta()
